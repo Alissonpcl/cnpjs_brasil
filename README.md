@@ -7,6 +7,12 @@ conda create --prefix ./condaenv python=3.12 pip
 conda activate ./condaenv
 ```
 
+Para executar os Notebook do projeto é necessário também instalar o Jupyter no novo env criado:
+
+```shell
+conda install jupyter
+```
+
 ## Instalando Airflow (docker-compose)
 
 ```shell
