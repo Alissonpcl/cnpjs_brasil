@@ -22,8 +22,8 @@ ROOT_URL = "https://arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj
 # Diretório onde os arquivos serão salvos
 DATA_OUTPUT_DIR = "/opt/airflow/data"
 
-# Tamanho do bloco de arquivos para realizar o download
-CHUNK_SIZE = 8192
+# Tamanho do bloco de arquivos para realizar o download (1MB)
+CHUNK_SIZE = 1048576
 
 
 @task()
@@ -75,7 +75,7 @@ def filter_links_to_download(latest_url: str):
 
     # Define as entidades que devem ser baixadas pois
     # nem todas que estão disponiveis precisam ser
-    entities_to_download = ["cnaes", "motivos"]
+    entities_to_download = ["cnaes", "motivos", "estabelecimentos"]
 
     try:
         response = requests.get(latest_url)
@@ -95,17 +95,18 @@ def filter_links_to_download(latest_url: str):
 
 
 @task(retries=3,
-      retry_delay=timedelta(seconds=3),
-      outlets=[DS_DADOS_ABERTOS_CNPJ])
+      retry_delay=timedelta(seconds=3))
 def download_file(link):
-    """Downloads a file from the given link."""
+    """Baixa um arquivo do link fornecido com suporte para tentativas, timeout e download em partes."""
     file_name = link.split("/")[-1]
     file_path = os.path.join(DATA_OUTPUT_DIR, file_name)
 
     logging.info(f"Preparing to download {file_name} to {file_path}...")
 
-    with requests.get(link, stream=True) as file_response:
+    # Realiza a requisição inicial
+    with requests.get(link, stream=True, timeout=60) as file_response:
         file_response.raise_for_status()
+
         total_size = int(file_response.headers.get('content-length', 0))  # Tamanho total do arquivo
         downloaded_size = 0
 
@@ -121,7 +122,17 @@ def download_file(link):
                     percent_downloaded = (downloaded_size / total_size) * 100
                     logging.info(f"\rDownloading {file_path}: {percent_downloaded:.2f}% complete")
 
-    logging.info(f"\n{file_path} downloaded successfully!")
+        logging.info(f"\n{file_path} downloaded successfully!")
+        return  # Sucesso no download, sai da função
+
+
+@task(outlets=[DS_DADOS_ABERTOS_CNPJ])
+def dummy_task() -> None:
+    """
+    Utilizado para prevenir que o Dataset seja atualizado
+    sem que todos os arquivos tenham sido corretamente baixados
+    """
+    pass
 
 
 @dag(
@@ -131,13 +142,14 @@ def download_file(link):
     dagrun_timeout=timedelta(hours=1),
     doc_md=__doc__,
     tags=['dados_abertos_cnpjs', 'manual'],
-    default_args={}
+    concurrency=1
 )
 def download_dados_abertos_cnpj():
     latest_url = get_latest_url()
     create_output_dir() >> latest_url
     filtered_links = filter_links_to_download(latest_url=latest_url)
-    download_file.expand(link=filtered_links)
+
+    download_file.expand(link=filtered_links) >> dummy_task()
 
 
 dag = download_dados_abertos_cnpj()
