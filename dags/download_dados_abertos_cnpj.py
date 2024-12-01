@@ -4,9 +4,9 @@ CNPJs da receita federal e faz o download dos arquivos que serão
 tratados e armazenados em outras DAGs
 """
 
+import logging
 import os
 import re
-import logging
 from datetime import datetime, timedelta
 
 import pendulum
@@ -14,13 +14,10 @@ import requests
 from airflow.decorators import dag, task
 from bs4 import BeautifulSoup
 
-from datasets import DS_DADOS_ABERTOS_CNPJ
+from dados_abertos_constants import DS_DADOS_ABERTOS_CNPJ, DATA_OUTPUT_DIR
 
 # URL raiz de onde ficam as pastas com que contém os links para downloads
 ROOT_URL = "https://arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj/"
-
-# Diretório onde os arquivos serão salvos
-DATA_OUTPUT_DIR = "/opt/airflow/data"
 
 # Tamanho do bloco de arquivos para realizar o download (1MB)
 CHUNK_SIZE = 1048576
@@ -139,7 +136,7 @@ def dummy_task() -> None:
     schedule_interval=None,  # sera executado manualmente apenas
     start_date=pendulum.datetime(2021, 1, 1, tz="UTC"),
     catchup=False,
-    dagrun_timeout=timedelta(hours=1),
+    dagrun_timeout=timedelta(hours=5),
     doc_md=__doc__,
     tags=['dados_abertos_cnpjs', 'manual'],
     concurrency=1

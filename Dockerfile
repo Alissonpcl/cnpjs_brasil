@@ -8,7 +8,10 @@ RUN apt-get update \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
 
+# Windows
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+# MacOs
+#ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
 
 USER airflow
 
