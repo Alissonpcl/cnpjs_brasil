@@ -29,7 +29,7 @@ def list_files_to_transform(entity_name: str):
 @task()
 def transform_data():
     spark = SparkSession.builder \
-        .appName("jira_extract_issues") \
+        .appName("cnpjs_abertos") \
         .config("spark.driver.memory", "2g") \
         .config("spark.executor.memory", "2g") \
         .config("spark.sql.legacy.timeParserPolicy", "LEGACY") \
@@ -79,11 +79,20 @@ def do_spark_operations(spark: SparkSession):
     ])
     files_estab_to_transform = list_files_to_transform(EntitiesSynced.ESTABELECIMENTOS.value)
     df_estabelecimentos = spark.read.csv(files_estab_to_transform, header=False, sep=";",
-                                         schema=csv_estabelecimentos_schema)
-    # logging.info(f"Estabelecimentos rows: {df_estabelecimentos.count()}")
+                                         schema=csv_estabelecimentos_schema,
+                                         encoding="ISO-8859-1")
+
+    # Mantém apenas estabelecimentos de atividade odontologica no CNAE
+    # principal pois não precisamos das demais empresas e a quantidade
+    # de registros e muito grande
+    # "8630504";"Atividade odontológica"
+    # "8630505";"Atividade odontológica sem recursos para realização de procedimentos cirúrgicos"
+    df_estabelecimentos_odonto = df_estabelecimentos.filter(F.col("cd_cnae_fiscal").isin("8630504", "8630504"))
+
+
     logging.info("Applying transformations and castings")
     df_estab_tratado = (
-        df_estabelecimentos
+        df_estabelecimentos_odonto
         .withColumn("cnpj", F.concat("cnpj_basico", "cnpj_ordem", "cnpj_dv"))
         .withColumn("matriz_filial", F.when(F.col("cd_matriz_filial").eqNullSafe(1), "Matriz").otherwise("Filial"))
         .withColumn("situacao_cadastral",
@@ -102,7 +111,9 @@ def do_spark_operations(spark: SparkSession):
         StructField("descricao", StringType(), nullable=True)
     ])
     files_motivos_to_transform = list_files_to_transform(entity_name=EntitiesSynced.MOTIVOS.value)
-    df_motivos = spark.read.csv(files_motivos_to_transform, header=False, sep=";", schema=csv_code_description_schema)
+    df_motivos = spark.read.csv(files_motivos_to_transform, header=False, sep=";",
+                                schema=csv_code_description_schema,
+                                encoding="ISO-8859-1")
     logging.info("Joining fields from MOTIVOS entity")
     # noinspection PyTypeChecker
     df_estab_motivos = (
@@ -114,7 +125,8 @@ def do_spark_operations(spark: SparkSession):
             df_motivos["descricao"].alias("motivo_situacao_cadastral")  # Apenas a coluna "descricao" do df_motivos
         ))
     files_cnaes_to_transform = list_files_to_transform(EntitiesSynced.CNAES.value)
-    df_cnaes = spark.read.csv(files_cnaes_to_transform, header=False, sep=";", schema=csv_code_description_schema,
+    df_cnaes = spark.read.csv(files_cnaes_to_transform, header=False, sep=";",
+                              schema=csv_code_description_schema,
                               encoding="ISO-8859-1")
     logging.info("Joining fields from CNAES entity")
     # noinspection PyTypeChecker
@@ -166,7 +178,9 @@ def do_spark_operations(spark: SparkSession):
                                                               'data_situacao_especial')
     output_data = f"{DATA_OUTPUT_DIR}/silver"
     logging.info(f"Writing parquet file to {output_data}")
-    df_estabelecimentos_final.write.mode("overwrite").parquet(output_data)
+    # Para salvar apenas 1 arquivo Parquet mudamos
+    # para apenas 1 particao
+    df_estabelecimentos_final.repartition(1).write.mode("overwrite").parquet(output_data)
 
 
 @task()
