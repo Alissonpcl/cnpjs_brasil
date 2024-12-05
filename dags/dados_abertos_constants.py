@@ -16,3 +16,4 @@ class EntitiesSynced(Enum):
     ESTABELECIMENTOS = 'Estabelecimentos'
     CNAES = 'Cnaes'
     MOTIVOS = 'Motivos'
+    MUNICIPIOS = 'Municipios'

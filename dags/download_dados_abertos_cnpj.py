@@ -72,7 +72,7 @@ def filter_links_to_download(latest_url: str):
 
     # Define as entidades que devem ser baixadas pois
     # nem todas que estão disponiveis precisam ser
-    entities_to_download = ["cnaes", "motivos", "estabelecimentos"]
+    entities_to_download = ["cnaes", "motivos", "municipios", "estabelecimentos"]
 
     try:
         response = requests.get(latest_url)

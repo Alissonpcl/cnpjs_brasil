@@ -66,7 +66,7 @@ def do_spark_operations(spark: SparkSession):
         StructField("bairro", StringType(), nullable=True),
         StructField("cep", StringType(), nullable=True),
         StructField("uf", StringType(), nullable=True),
-        StructField("municipio", StringType(), nullable=True),
+        StructField("cd_municipio", StringType(), nullable=True),
         StructField("ddd1", StringType(), nullable=True),
         StructField("telefone1", StringType(), nullable=True),
         StructField("ddd2", StringType(), nullable=True),
@@ -89,7 +89,6 @@ def do_spark_operations(spark: SparkSession):
     # "8630505";"Atividade odontológica sem recursos para realização de procedimentos cirúrgicos"
     df_estabelecimentos_odonto = df_estabelecimentos.filter(F.col("cd_cnae_fiscal").isin("8630504", "8630504"))
 
-
     logging.info("Applying transformations and castings")
     df_estab_tratado = (
         df_estabelecimentos_odonto
@@ -110,11 +109,13 @@ def do_spark_operations(spark: SparkSession):
         StructField("codigo", StringType(), nullable=True),
         StructField("descricao", StringType(), nullable=True)
     ])
+
+    logging.info("Joining fields from MOTIVOS entity")
     files_motivos_to_transform = list_files_to_transform(entity_name=EntitiesSynced.MOTIVOS.value)
     df_motivos = spark.read.csv(files_motivos_to_transform, header=False, sep=";",
                                 schema=csv_code_description_schema,
                                 encoding="ISO-8859-1")
-    logging.info("Joining fields from MOTIVOS entity")
+
     # noinspection PyTypeChecker
     df_estab_motivos = (
         df_estab_tratado
@@ -124,11 +125,13 @@ def do_spark_operations(spark: SparkSession):
             df_estab_tratado["*"],  # Todas as colunas do df_estab_tratado
             df_motivos["descricao"].alias("motivo_situacao_cadastral")  # Apenas a coluna "descricao" do df_motivos
         ))
+
+    logging.info("Joining fields from CNAES entity")
     files_cnaes_to_transform = list_files_to_transform(EntitiesSynced.CNAES.value)
     df_cnaes = spark.read.csv(files_cnaes_to_transform, header=False, sep=";",
                               schema=csv_code_description_schema,
                               encoding="ISO-8859-1")
-    logging.info("Joining fields from CNAES entity")
+
     # noinspection PyTypeChecker
     df_estab_motivos_cnaes = (
         df_estab_motivos
@@ -138,44 +141,62 @@ def do_spark_operations(spark: SparkSession):
             df_estab_motivos["*"],  # Todas as colunas do df_estab_tratado
             df_cnaes["descricao"].alias("cnae_fiscal")  # Apenas a coluna "descricao" do df_motivos
         ))
+
+    logging.info("Joining fields from MUNICIPIOS entity")
+    files_municipios_to_transform = list_files_to_transform(EntitiesSynced.MUNICIPIOS.value)
+    df_municipios = spark.read.csv(files_municipios_to_transform, header=False, sep=";",
+                                   schema=csv_code_description_schema,
+                                   encoding="ISO-8859-1")
+
+    # noinspection PyTypeChecker
+    df_estab_motivos_cnaes_municipios = (
+        df_estab_motivos_cnaes
+        .join(df_municipios,
+              df_estab_motivos_cnaes.cd_municipio == df_municipios.codigo, "left")
+        .select(
+            df_estab_motivos_cnaes["*"],  # Todas as colunas do df_estab_tratado
+            df_municipios["descricao"].alias("municipio")  # Apenas a coluna "descricao" do df_municipios
+        ))
+
     # O Select apenas ajusta a ordem das colunas para que sejam persistidas
     # de uma maneira mais facil de visualizar, colocando as descricoes
     # ao lado dos codigos
-    df_estabelecimentos_final = df_estab_motivos_cnaes.select('cnpj_basico',
-                                                              'cnpj_ordem',
-                                                              'cnpj_dv',
-                                                              'cnpj',
-                                                              'cd_matriz_filial',
-                                                              'matriz_filial',
-                                                              'nome_fantasia',
-                                                              'cd_situacao_cadastral',
-                                                              'situacao_cadastral',
-                                                              'data_situacao_cadastral',
-                                                              'cd_motivo_situacao_cadastral',
-                                                              'motivo_situacao_cadastral',
-                                                              'nome_cidade_exterior',
-                                                              'pais',
-                                                              'data_inicio_atividades',
-                                                              'cd_cnae_fiscal',
-                                                              'cnae_fiscal',
-                                                              'cd_cnae_fiscal_secundario',
-                                                              'tipo_logradouro',
-                                                              'logradouro',
-                                                              'numero',
-                                                              'complemento',
-                                                              'bairro',
-                                                              'cep',
-                                                              'uf',
-                                                              'municipio',
-                                                              'ddd1',
-                                                              'telefone1',
-                                                              'ddd2',
-                                                              'telefone2',
-                                                              'ddd_fax',
-                                                              'fax',
-                                                              'correio_eletronico',
-                                                              'cd_situacao_especial',
-                                                              'data_situacao_especial')
+    df_estabelecimentos_final = df_estab_motivos_cnaes_municipios.select('cnpj_basico',
+                                                                         'cnpj_ordem',
+                                                                         'cnpj_dv',
+                                                                         'cnpj',
+                                                                         'cd_matriz_filial',
+                                                                         'matriz_filial',
+                                                                         'nome_fantasia',
+                                                                         'cd_situacao_cadastral',
+                                                                         'situacao_cadastral',
+                                                                         'data_situacao_cadastral',
+                                                                         'cd_motivo_situacao_cadastral',
+                                                                         'motivo_situacao_cadastral',
+                                                                         'nome_cidade_exterior',
+                                                                         'pais',
+                                                                         'data_inicio_atividades',
+                                                                         'cd_cnae_fiscal',
+                                                                         'cnae_fiscal',
+                                                                         'cd_cnae_fiscal_secundario',
+                                                                         'tipo_logradouro',
+                                                                         'logradouro',
+                                                                         'numero',
+                                                                         'complemento',
+                                                                         'bairro',
+                                                                         'cep',
+                                                                         'uf',
+                                                                         'cd_municipio',
+                                                                         'municipio',
+                                                                         'ddd1',
+                                                                         'telefone1',
+                                                                         'ddd2',
+                                                                         'telefone2',
+                                                                         'ddd_fax',
+                                                                         'fax',
+                                                                         'correio_eletronico',
+                                                                         'cd_situacao_especial',
+                                                                         'data_situacao_especial')
     output_data = f"{DATA_OUTPUT_DIR}/silver"
     logging.info(f"Writing parquet file to {output_data}")
     # Para salvar apenas 1 arquivo Parquet mudamos
