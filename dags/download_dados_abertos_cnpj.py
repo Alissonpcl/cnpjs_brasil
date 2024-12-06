@@ -14,7 +14,7 @@ import requests
 from airflow.decorators import dag, task
 from bs4 import BeautifulSoup
 
-from dados_abertos_constants import DS_DADOS_ABERTOS_CNPJ, DATA_OUTPUT_DIR
+from dados_abertos_constants import DS_DADOS_ABERTOS_CNPJ, DATA_OUTPUT_DIR, EntitiesSynced
 
 # URL raiz de onde ficam as pastas com que contém os links para downloads
 ROOT_URL = "https://arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj/"
@@ -72,7 +72,7 @@ def filter_links_to_download(latest_url: str):
 
     # Define as entidades que devem ser baixadas pois
     # nem todas que estão disponiveis precisam ser
-    entities_to_download = ["cnaes", "motivos", "municipios", "estabelecimentos"]
+    entities_to_download = [e.value for e in EntitiesSynced]
 
     try:
         response = requests.get(latest_url)
