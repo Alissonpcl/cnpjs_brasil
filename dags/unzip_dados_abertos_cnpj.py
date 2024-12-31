@@ -11,10 +11,10 @@ from datetime import timedelta
 import pendulum
 from airflow.decorators import dag, task
 
-from dados_abertos_constants import DS_DADOS_ABERTOS_CNPJ, DATA_OUTPUT_DIR
+from dados_abertos_constants import DS_DADOS_ABERTOS_CNPJ, DATA_OUTPUT_DIR, DS_DADOS_ABERTOS_CNPJ_UNZIPED
 
 
-@task()
+@task(outlets=[DS_DADOS_ABERTOS_CNPJ_UNZIPED])
 def extract_zip_files():
     # Percorre todos os arquivos no diretório
     for file_name in os.listdir(DATA_OUTPUT_DIR):
