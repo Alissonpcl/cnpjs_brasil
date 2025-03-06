@@ -1,0 +1,6 @@
+pyspark==3.5.3
+requests==2.32.3
+psycopg2==2.9.10
+beautifulsoup4==4.12.3
+#Usado para que as IDE consigam reconhecer as libs e ativar o intellisense
+apache-airflow==2.10.3

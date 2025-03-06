@@ -1,0 +1,10 @@
+/condaenv/
+/.idea/
+.iml
+/logs
+/condaenv
+.DS_Store
+
+# Essa pasta pode conter arquivos muito
+# grandes que não queremos no repositório
+/data
